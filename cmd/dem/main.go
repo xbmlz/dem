@@ -22,12 +22,15 @@ type Options struct {
 	Language string
 	Version  string
 	Mirror   string
+	OsName   string
+	OsArch   string
 }
 
 var opts Options
 
 func main() {
 	args := os.Args
+	opts.OsName, opts.OsArch = utils.GetOSInfo()
 	if len(args) <= 1 {
 		help()
 		return
@@ -67,6 +70,7 @@ func install(args []string) {
 	}
 
 	fmt.Printf("Installing %s %s...\n", arr, opts.Version)
+
 	switch args[0] {
 	case "node":
 
@@ -118,4 +122,10 @@ func GetNodeLatestVersion() string {
 	reg := regexp.MustCompile("node-v|-x.+")
 	latestVersion := reg.ReplaceAllString(re.FindString(content), "")
 	return latestVersion
+}
+
+func InstallNode() string {
+	// downloadUrl := fmt.Sprintf("%s/v%s/node-v%s-%s-%s.zip", opts.Mirror, opts.Version, opts.Version, opts.OsName, opts.OsArch)
+	// target := utils.GetCurrentDirectory() + "/node/" + opts.Version + "-win-x64.zip"
+	return ""
 }
