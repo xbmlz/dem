@@ -11,6 +11,11 @@ import (
 	"strings"
 )
 
+func IsDirExists(dirname string) bool {
+	fi, err := os.Stat(dirname)
+	return (err == nil || os.IsExist(err)) && fi.IsDir()
+}
+
 func IsFileExists(path string) bool {
 	_, err := os.Lstat(path)
 	return !os.IsNotExist(err)
@@ -33,37 +38,53 @@ func ExtractFile(src, dest string) error {
 }
 
 func UnTarGz(src, dest string) error {
-	r, err := os.Open(src)
+	fr, err := os.Open(src)
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer fr.Close()
 
-	os.MkdirAll(dest, 0755)
-	gr, err := gzip.NewReader(r)
+	gr, err := gzip.NewReader(fr)
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer gr.Close()
+
 	tr := tar.NewReader(gr)
+
 	for {
 		hdr, err := tr.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
+
+		switch {
+		case err == io.EOF:
+			return nil
+		case err != nil:
 			return err
+		case hdr == nil:
+			continue
 		}
-		path := filepath.Join(dest, hdr.Name)
-		os.MkdirAll(filepath.Dir(path), 0755)
-		f, err := os.Create(path)
-		if err != nil {
-			return err
+
+		dstFileDir := filepath.Join(dest, hdr.Name)
+
+		switch hdr.Typeflag {
+		case tar.TypeDir:
+			if b := IsDirExists(dstFileDir); !b {
+				if err := os.MkdirAll(dstFileDir, 0775); err != nil {
+					return err
+				}
+			}
+		case tar.TypeReg:
+			file, err := os.OpenFile(dstFileDir, os.O_CREATE|os.O_RDWR, os.FileMode(hdr.Mode))
+			if err != nil {
+				return err
+			}
+			_, err = io.Copy(file, tr)
+			if err != nil {
+				return err
+			}
+			file.Close()
 		}
-		io.Copy(f, tr)
-		f.Close()
 	}
-	return nil
 }
 
 func UnZip(src, dest string) error {

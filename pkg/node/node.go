@@ -6,6 +6,9 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"strings"
+
+	"github.com/blang/semver"
 )
 
 type NodeEnvOptions struct {
@@ -17,12 +20,10 @@ type NodeEnvOptions struct {
 	verifyssl bool   // eg: true
 	version   string // eg: 8.10.0
 	fileExt   string // eg: zip
-	// args      []string // eg: ["node:8.10.0"]
 }
 
-func NewNodeEnv(m string, args []string) *NodeEnvOptions {
+func NewNodeEnv(m, v string) *NodeEnvOptions {
 	mirror := "https://nodejs.org/dist/"
-	version := "latest"
 	if m != "" {
 		mirror = m
 	}
@@ -35,16 +36,14 @@ func NewNodeEnv(m string, args []string) *NodeEnvOptions {
 		osArch:    helpers.GetOsArch(),
 		osName:    helpers.GetOsName(),
 		verifyssl: true,
-		version:   version,
+		version:   v,
 		fileExt:   helpers.GetFileExt(),
 	}
 	return opts
 }
 
 func (env *NodeEnvOptions) Install() {
-	if env.version == "latest" {
-		env.version = env.GetLastestVersion()
-	}
+	env.version = env.GetVersion()
 	if env.IsInstalled(env.version) {
 		fmt.Printf("node %s is already installed !\n", env.version)
 		return
@@ -66,8 +65,13 @@ func (env *NodeEnvOptions) Install() {
 	fmt.Printf("node %s installed\n", env.version)
 }
 
-func (env *NodeEnvOptions) GetLastestVersion() string {
-	url := fmt.Sprintf("%s/latest/SHASUMS256.txt", env.mirror)
+func (env *NodeEnvOptions) GetLastestVersion(version string) string {
+	url := ""
+	if version == "" {
+		url = fmt.Sprintf("%s/latest/SHASUMS256.txt", env.mirror)
+	} else {
+		url = fmt.Sprintf("%s/latest-v%s.x/SHASUMS256.txt", version, env.mirror)
+	}
 	content := helpers.GetRemoteTextFile(url)
 	re := regexp.MustCompile("node-v(.+)+msi")
 	reg := regexp.MustCompile("node-v|-x.+")
@@ -80,7 +84,41 @@ func (env *NodeEnvOptions) IsInstalled(src string) bool {
 	return helpers.IsFileExists(nodeExcutable)
 }
 
-func (env *NodeEnvOptions) GetVersion(version string) string {
-
+func (env *NodeEnvOptions) GetVersion() string {
+	version := env.version
+	if version == "" || version == "latest" {
+		return env.GetLastestVersion("")
+	}
+	// 1.2.12 or 1
+	version = strings.Replace(version, "v", "", 1)
+	v, err := semver.Make(version)
+	if err == nil {
+		err = v.Validate()
+	}
+	if err == nil {
+		sv := strings.Split(version, ".")
+		if len(sv) < 3 {
+			return env.GetLastestVersion(sv[0])
+		} else {
+			return cleanVersion(version)
+		}
+	}
 	return env.version
+}
+
+func cleanVersion(version string) string {
+	re := regexp.MustCompile(`\\d+.\\d+.\\d+`)
+	matched := re.FindString(version)
+
+	if len(matched) == 0 {
+		re = regexp.MustCompile(`\\d+.\\d+`)
+		matched = re.FindString(version)
+		if len(matched) == 0 {
+			matched = version + ".0.0"
+		} else {
+			matched = matched + ".0"
+		}
+		fmt.Println(matched)
+	}
+	return matched
 }

@@ -60,9 +60,15 @@ func install() {
 		fmt.Printf("mirror: %s\n", mirror)
 	}
 	arr := strings.Split(args[0], ":")
+	var ver string
+	if len(arr) == 1 {
+		ver = ""
+	} else {
+		ver = arr[1]
+	}
 	switch arr[0] {
 	case "node":
-		node.NewNodeEnv(mirror, arr).Install()
+		node.NewNodeEnv(mirror, ver).Install()
 	default:
 		help()
 		return

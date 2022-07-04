@@ -12,7 +12,7 @@
 			"program": "${workspaceFolder}/cmd/dem/main.go",
 			"args": [
 				"i",
-				"node",
+				"node:",
 				"--mirror=https://npm.taobao.org/mirrors/node"
 			]
 		}
